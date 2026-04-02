@@ -229,7 +229,7 @@ sandbox:
 
 When using Docker development (`make docker-start`), DeerFlow starts the `provisioner` service only if this provisioner mode is configured. In local or plain Docker sandbox modes, `provisioner` is skipped.
 
-See [Provisioner Setup Guide](docker/provisioner/README.md) for detailed configuration, prerequisites, and troubleshooting.
+See [Provisioner Setup Guide](../../docker/provisioner/README.md) for detailed configuration, prerequisites, and troubleshooting.
 
 Choose between local execution or Docker-based isolation:
 
@@ -257,6 +257,8 @@ sandbox:
       read_only: false
 ```
 
+When you configure `sandbox.mounts`, DeerFlow exposes those `container_path` values in the agent prompt so the agent can discover and operate on mounted directories directly instead of assuming everything must live under `/mnt/user-data`.
+
 ### Skills
 
 Configure the skills directory for specialized workflows:
@@ -275,6 +277,12 @@ skills:
 - Each skill has a `SKILL.md` file with metadata
 - Skills are automatically discovered and loaded
 - Available in both local and Docker sandbox via path mapping
+
+**Per-Agent Skill Filtering**:
+Custom agents can restrict which skills they load by defining a `skills` field in their `config.yaml` (located at `workspace/agents/<agent_name>/config.yaml`):
+- **Omitted or `null`**: Loads all globally enabled skills (default fallback).
+- **`[]` (empty list)**: Disables all skills for this specific agent.
+- **`["skill-name"]`**: Loads only the explicitly specified skills.
 
 ### Title Generation
 
