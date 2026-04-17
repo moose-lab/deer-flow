@@ -146,14 +146,12 @@ class TestLoopDetection:
         for _ in range(2):
             mw._apply(_make_state(tool_calls=call), runtime)
 
-        # Third identical call triggers warning — should strip tool_calls
-        # from the AIMessage to prevent dangling tool_call errors (#2255)
+        # Third identical call triggers warning
         result = mw._apply(_make_state(tool_calls=call), runtime)
         assert result is not None
         msgs = result["messages"]
         assert len(msgs) == 1
-        assert isinstance(msgs[0], AIMessage)
-        assert msgs[0].tool_calls == []
+        assert isinstance(msgs[0], HumanMessage)
         assert "LOOP DETECTED" in msgs[0].content
 
     def test_warn_only_injected_once(self):
@@ -166,10 +164,9 @@ class TestLoopDetection:
         for _ in range(2):
             mw._apply(_make_state(tool_calls=call), runtime)
 
-        # Third — warning injected (tool_calls stripped from AIMessage)
+        # Third — warning injected
         result = mw._apply(_make_state(tool_calls=call), runtime)
         assert result is not None
-        assert isinstance(result["messages"][0], AIMessage)
         assert "LOOP DETECTED" in result["messages"][0].content
 
         # Fourth — warning already injected, should return None
@@ -294,34 +291,6 @@ class TestLoopDetection:
         # The middleware should have a lock attribute
         assert hasattr(mw, "_lock")
         assert isinstance(mw._lock, type(mw._lock))
-
-    def test_warn_strips_tool_calls_to_prevent_400(self):
-        """Regression test for #2255: warning must not leave dangling tool_calls.
-
-        When the warning fires, the AIMessage's tool_calls must be stripped so
-        the message history stays valid for LLM APIs that require every
-        tool_call to have a matching ToolMessage.
-        """
-        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=5)
-        runtime = _make_runtime()
-        call = [_bash_call("ls")]
-
-        mw._apply(_make_state(tool_calls=call), runtime)
-
-        # Second call triggers warning
-        result = mw._apply(_make_state(tool_calls=call), runtime)
-        assert result is not None
-        msgs = result["messages"]
-
-        # The result should contain a single AIMessage with tool_calls stripped
-        assert len(msgs) == 1
-        msg = msgs[0]
-        assert isinstance(msg, AIMessage)
-        assert msg.tool_calls == []
-        assert "LOOP DETECTED" in msg.content
-
-        # No HumanMessage should be present (it would leave tool_calls dangling)
-        assert not any(isinstance(m, HumanMessage) for m in msgs)
 
     def test_fallback_thread_id_when_missing(self):
         """When runtime context has no thread_id, should use 'default'."""

@@ -356,30 +356,13 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
             return {"messages": [stripped_msg]}
 
         if warning:
-            # The last AIMessage has tool_calls that will never be executed.
-            # We must strip them and inject placeholder ToolMessages so the
-            # message history stays valid for the LLM API.  Without this,
-            # the dangling tool_calls cause OpenAI-compatible APIs to return
-            # HTTP 400 ("insufficient tool messages following tool_calls
-            # message"), permanently breaking the thread.  See #2255.
-            messages = state.get("messages", [])
-            last_msg = messages[-1]
-            tool_calls = getattr(last_msg, "tool_calls", None) or []
-            result_msgs: list = []
-            if tool_calls:
-                stripped_msg = last_msg.model_copy(
-                    update={
-                        "tool_calls": [],
-                        "content": (last_msg.content or "") + f"\n\n{warning}",
-                    }
-                )
-                result_msgs.append(stripped_msg)
-            else:
-                # Inject as HumanMessage instead of SystemMessage to avoid
-                # Anthropic's "multiple non-consecutive system messages" error.
-                # HumanMessage works with all providers. See #1299.
-                result_msgs.append(HumanMessage(content=warning))
-            return {"messages": result_msgs}
+            # Inject as HumanMessage instead of SystemMessage to avoid
+            # Anthropic's "multiple non-consecutive system messages" error.
+            # Anthropic models require system messages only at the start of
+            # the conversation; injecting one mid-conversation crashes
+            # langchain_anthropic's _format_messages(). HumanMessage works
+            # with all providers. See #1299.
+            return {"messages": [HumanMessage(content=warning)]}
 
         return None
 
